@@ -47,8 +47,18 @@ def get_dataset() -> Iterator[dict[str, Any]]:
         DATASET_NAME,
         split="train",
         streaming=True,
+        columns=[
+            "source_lang",
+            "target_lang",
+            "meta",
+            "Answer",
+            "query_id",
+            "query_type",
+            "Eng_Query",
+            "Eng_Answer",
+            "query",
+        ],
     )
-
 
 def get_sample_records(
     dataset: Iterator[dict[str, Any]],
