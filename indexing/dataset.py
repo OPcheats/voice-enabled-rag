@@ -5,27 +5,34 @@ DATASET_NAME = "ai4bharat/MSMARCO-XI"
 
 
 def main():
-    print(f"Loading dataset: {DATASET_NAME}")
+    print(f"Inspecting dataset: {DATASET_NAME}")
 
-    dataset = load_dataset(DATASET_NAME)
+    dataset = load_dataset(
+        DATASET_NAME,
+        split="train",
+        streaming=True,
+    )
 
     print("\n" + "=" * 60)
-    print("DATASET OVERVIEW")
+    print("DATASET STREAM")
     print("=" * 60)
     print(dataset)
 
-    for split_name, split in dataset.items():
-        print("\n" + "=" * 60)
-        print(f"SPLIT: {split_name}")
-        print("=" * 60)
+    print("\n" + "=" * 60)
+    print("COLUMNS")
+    print("=" * 60)
+    print(dataset.column_names)
 
-        print(f"Number of rows: {len(split)}")
-        print(f"Columns: {split.column_names}")
-        print(f"Features: {split.features}")
+    print("\n" + "=" * 60)
+    print("FIRST RECORD")
+    print("=" * 60)
 
-        if len(split) > 0:
-            print("\nFirst record:")
-            print(split[0])
+    first_record = next(iter(dataset))
+
+    for key, value in first_record.items():
+        print(f"\n--- {key} ---")
+        print(type(value))
+        print(value)
 
 
 if __name__ == "__main__":
