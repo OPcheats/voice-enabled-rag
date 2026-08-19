@@ -6,6 +6,10 @@ from retrieval.retriever import Retriever
 
 MODEL_NAME = "google/flan-t5-small"
 
+UNAVAILABLE = (
+    "The information is not available in the provided context."
+)
+
 
 class RAGGenerator:
     """Retrieve context and generate a grounded answer."""
@@ -36,25 +40,33 @@ class RAGGenerator:
         )
 
         if not results:
-            return "The information is not available in the provided context."
+            return UNAVAILABLE
 
         best_score = results[0][1]
 
         if best_score < min_score:
-            return "The information is not available in the provided context."
+            return UNAVAILABLE
 
-        context = build_context(results)
+        relevant_results = [
+            result
+            for result in results
+            if result[1] >= min_score
+        ]
 
-        prompt = f"""You are a question-answering assistant.
+        context = build_context(relevant_results)
 
-Answer the question using only the information in the context.
+        prompt = f"""You are a helpful question-answering assistant.
+
+Use only the information provided in the context to answer the question.
 
 Rules:
+- Answer directly and naturally.
 - Give a concise answer in 1-2 sentences.
-- Do not copy the context word-for-word.
-- Do not add facts that are not supported by the context.
-- If the context does not answer the question, say:
-  "The information is not available in the provided context."
+- Rewrite the information in your own words.
+- Do not copy long phrases from the context.
+- Do not invent or add information.
+- If the context does not contain enough information to answer the question, say exactly:
+  "{UNAVAILABLE}"
 
 Context:
 {context}
