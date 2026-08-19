@@ -21,23 +21,40 @@ class RAGGenerator:
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
 
-    def build_prompt(
+    def generate(
         self,
         question: str,
         top_k: int = 3,
+        max_new_tokens: int = 80,
+        min_score: float = 0.30,
     ) -> str:
-        """Build a grounded prompt from retrieved context."""
+        """Retrieve relevant context and generate a grounded answer."""
+
         results = self.retriever.retrieve(
             question,
             top_k=top_k,
         )
 
+        if not results:
+            return "The information is not available in the provided context."
+
+        best_score = results[0][1]
+
+        if best_score < min_score:
+            return "The information is not available in the provided context."
+
         context = build_context(results)
 
-        return f"""Answer the question using only the provided context.
+        prompt = f"""You are a question-answering assistant.
 
-If the context does not contain enough information to answer,
-say that the information is not available in the provided context.
+Answer the question using only the information in the context.
+
+Rules:
+- Give a concise answer in 1-2 sentences.
+- Do not copy the context word-for-word.
+- Do not add facts that are not supported by the context.
+- If the context does not answer the question, say:
+  "The information is not available in the provided context."
 
 Context:
 {context}
@@ -46,18 +63,6 @@ Question:
 {question}
 
 Answer:"""
-
-    def generate(
-        self,
-        question: str,
-        top_k: int = 3,
-        max_new_tokens: int = 80,
-    ) -> str:
-        """Retrieve context and generate an answer."""
-        prompt = self.build_prompt(
-            question,
-            top_k=top_k,
-        )
 
         inputs = self.tokenizer(
             prompt,
