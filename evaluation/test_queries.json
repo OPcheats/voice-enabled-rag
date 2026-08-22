@@ -1,0 +1,12 @@
+[
+  "What is retrieval augmented generation?",
+  "How does FAISS vector search work?",
+  "What is the MSMARCO dataset used for?",
+  "Explain the difference between BM25 and dense retrieval.",
+  "What is a transformer model in natural language processing?",
+  "How does cosine similarity work in information retrieval?",
+  "What is chunking in RAG pipelines?",
+  "What are embeddings in machine learning?",
+  "How does a reranker improve retrieval quality?",
+  "What is the difference between generative and extractive QA?"
+]

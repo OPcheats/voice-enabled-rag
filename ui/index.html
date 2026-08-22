@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voice-Enabled RAG — HH Goa 2026</title>
+  <meta name="description" content="Voice-enabled Retrieval-Augmented Generation demo. Ask a question by voice and receive a grounded answer from the MSMARCO knowledge base." />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2a2d3e;
+      --accent: #6c63ff;
+      --accent-light: #8b85ff;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --radius: 12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+    header h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--accent-light);
+      letter-spacing: -0.5px;
+    }
+    header p {
+      color: var(--muted);
+      margin-top: 0.4rem;
+      font-size: 0.95rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      width: 100%;
+      max-width: 680px;
+      margin-bottom: 1.25rem;
+    }
+
+    .card-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+
+    /* Voice input */
+    #record-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 0.85rem 1.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      width: 100%;
+      justify-content: center;
+    }
+    #record-btn:hover { background: var(--accent-light); }
+    #record-btn:active { transform: scale(0.98); }
+    #record-btn.recording {
+      background: var(--danger);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+      50%       { box-shadow: 0 0 0 8px rgba(239,68,68,0); }
+    }
+
+    #status-text {
+      margin-top: 0.75rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+      text-align: center;
+      min-height: 1.2em;
+    }
+
+    /* Text fields */
+    .text-field {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.9rem 1rem;
+      font-size: 0.95rem;
+      color: var(--text);
+      min-height: 3.5rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .text-field.placeholder { color: var(--muted); font-style: italic; }
+
+    /* Badges */
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.65rem;
+      border-radius: 99px;
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+    .badge-success  { background: rgba(34,197,94,0.15);  color: var(--success); }
+    .badge-refused  { background: rgba(245,158,11,0.15); color: var(--warning); }
+    .badge-error    { background: rgba(239,68,68,0.15);  color: var(--danger);  }
+    .badge-unsafe   { background: rgba(239,68,68,0.15);  color: var(--danger);  }
+
+    /* Sources */
+    #sources-list { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
+    .source-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .source-score {
+      display: inline-block;
+      font-weight: 600;
+      color: var(--accent-light);
+      margin-right: 0.5rem;
+    }
+
+    /* Latency grid */
+    .latency-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 0.6rem;
+      margin-top: 0.5rem;
+    }
+    .latency-cell {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.6rem 0.8rem;
+      font-size: 0.82rem;
+    }
+    .latency-cell .lat-label { color: var(--muted); margin-bottom: 0.2rem; }
+    .latency-cell .lat-value { font-weight: 700; color: var(--accent-light); }
+
+    /* Status row */
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🎙️ Voice-Enabled RAG</h1>
+    <p>HH Goa 2026 — Ask a question by voice, get a grounded answer.</p>
+  </header>
+
+  <!-- Voice Input -->
+  <div class="card">
+    <div class="card-label">Voice Input</div>
+    <button id="record-btn" onclick="toggleRecording()">
+      <span id="btn-icon">🎙️</span>
+      <span id="btn-label">Start Recording</span>
+    </button>
+    <div id="status-text">Press to record your question.</div>
+  </div>
+
+  <!-- Transcript -->
+  <div class="card">
+    <div class="card-label">Transcript</div>
+    <div class="text-field placeholder" id="transcript-box">Transcript will appear here...</div>
+  </div>
+
+  <!-- Answer -->
+  <div class="card">
+    <div class="card-label">Answer</div>
+    <div class="text-field placeholder" id="answer-box">Answer will appear here...</div>
+  </div>
+
+  <!-- Status -->
+  <div class="card">
+    <div class="card-label">Status</div>
+    <div class="status-row">
+      <span id="grounded-badge" class="hidden"></span>
+      <span id="status-badge" class="hidden"></span>
+    </div>
+  </div>
+
+  <!-- Sources -->
+  <div class="card">
+    <div class="card-label">Sources</div>
+    <ul id="sources-list">
+      <li class="source-item" style="color:var(--muted); font-style:italic;">No sources yet.</li>
+    </ul>
+  </div>
+
+  <!-- Latency -->
+  <div class="card">
+    <div class="card-label">Pipeline Latency</div>
+    <div class="latency-grid" id="latency-grid">
+      <div class="latency-cell">
+        <div class="lat-label">Total</div>
+        <div class="lat-value" id="lat-total">—</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Configuration: adjust if running the API on a different port
+    const API_BASE = "http://localhost:8000";
+
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let recording = false;
+
+    async function toggleRecording() {
+      if (recording) {
+        stopRecording();
+      } else {
+        await startRecording();
+      }
+    }
+
+    async function startRecording() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunks = [];
+        mediaRecorder = new MediaRecorder(stream);
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) audioChunks.push(e.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+          const blob = new Blob(audioChunks, { type: "audio/webm" });
+          stream.getTracks().forEach(t => t.stop());
+          await submitAudio(blob);
+        };
+
+        mediaRecorder.start();
+        recording = true;
+        document.getElementById("record-btn").classList.add("recording");
+        document.getElementById("btn-icon").textContent = "⏹️";
+        document.getElementById("btn-label").textContent = "Stop Recording";
+        document.getElementById("status-text").textContent = "Recording… press Stop when done.";
+      } catch (err) {
+        setStatus("Microphone access denied: " + err.message);
+      }
+    }
+
+    function stopRecording() {
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        mediaRecorder.stop();
+      }
+      recording = false;
+      document.getElementById("record-btn").classList.remove("recording");
+      document.getElementById("btn-icon").textContent = "🎙️";
+      document.getElementById("btn-label").textContent = "Start Recording";
+      document.getElementById("status-text").textContent = "Processing…";
+    }
+
+    async function submitAudio(blob) {
+      setStatus("Sending to pipeline…");
+      clearResults();
+
+      const formData = new FormData();
+      formData.append("audio", blob, "recording.webm");
+
+      try {
+        const res = await fetch(`${API_BASE}/ask`, {
+          method: "POST",
+          body: formData,
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: "Unknown error" }));
+          setStatus("API error: " + (err.detail || res.status));
+          return;
+        }
+        const data = await res.json();
+        renderResponse(data);
+        setStatus("Done.");
+      } catch (err) {
+        setStatus("Network error: " + err.message);
+      }
+    }
+
+    function renderResponse(data) {
+      // Transcript
+      const tBox = document.getElementById("transcript-box");
+      tBox.textContent = data.transcript || "(empty)";
+      tBox.classList.remove("placeholder");
+
+      // Answer
+      const aBox = document.getElementById("answer-box");
+      aBox.textContent = data.answer || "(no answer)";
+      aBox.classList.remove("placeholder");
+
+      // Status badges
+      const gBadge = document.getElementById("grounded-badge");
+      gBadge.classList.remove("hidden");
+      if (data.grounded) {
+        gBadge.className = "badge badge-success";
+        gBadge.textContent = "✓ Grounded";
+      } else {
+        gBadge.className = "badge badge-refused";
+        gBadge.textContent = "✗ Not Grounded";
+      }
+
+      const sBadge = document.getElementById("status-badge");
+      sBadge.classList.remove("hidden");
+      const statusClass = {
+        success: "badge-success",
+        refused: "badge-refused",
+        unsafe:  "badge-error",
+        error:   "badge-error",
+      }[data.status] || "badge-refused";
+      sBadge.className = `badge ${statusClass}`;
+      sBadge.textContent = data.status.toUpperCase();
+
+      // Sources
+      const list = document.getElementById("sources-list");
+      list.innerHTML = "";
+      if (data.sources && data.sources.length > 0) {
+        data.sources.forEach((s, i) => {
+          const li = document.createElement("li");
+          li.className = "source-item";
+          li.innerHTML = `<span class="source-score">${(s.score * 100).toFixed(1)}%</span>${s.source ? `<em>${s.source}</em> — ` : ""}${s.text.substring(0, 200)}${s.text.length > 200 ? "…" : ""}`;
+          list.appendChild(li);
+        });
+      } else {
+        list.innerHTML = `<li class="source-item" style="color:var(--muted); font-style:italic;">No sources returned.</li>`;
+      }
+
+      // Latency
+      const grid = document.getElementById("latency-grid");
+      const sl = data.stage_latencies || {};
+      const stages = [
+        { key: "total_ms",      label: "Total",      value: data.latency_ms },
+        { key: "stt_ms",        label: "STT",        value: sl.stt_ms },
+        { key: "retrieval_ms",  label: "Retrieval",  value: sl.retrieval_ms },
+        { key: "generation_ms", label: "Generation", value: sl.generation_ms },
+        { key: "guardrail_ms",  label: "Guardrails", value: sl.guardrail_ms },
+        { key: "reranking_ms",  label: "Reranking",  value: sl.reranking_ms },
+        { key: "embedding_ms",  label: "Embedding",  value: sl.embedding_ms },
+      ];
+      grid.innerHTML = stages.map(s =>
+        `<div class="latency-cell">
+          <div class="lat-label">${s.label}</div>
+          <div class="lat-value">${s.value != null ? s.value.toFixed(1) + " ms" : "—"}</div>
+        </div>`
+      ).join("");
+    }
+
+    function clearResults() {
+      const tBox = document.getElementById("transcript-box");
+      tBox.textContent = "Transcript will appear here...";
+      tBox.classList.add("placeholder");
+
+      const aBox = document.getElementById("answer-box");
+      aBox.textContent = "Answer will appear here...";
+      aBox.classList.add("placeholder");
+
+      document.getElementById("grounded-badge").classList.add("hidden");
+      document.getElementById("status-badge").classList.add("hidden");
+
+      document.getElementById("sources-list").innerHTML =
+        `<li class="source-item" style="color:var(--muted); font-style:italic;">No sources yet.</li>`;
+
+      document.getElementById("latency-grid").innerHTML =
+        `<div class="latency-cell"><div class="lat-label">Total</div><div class="lat-value" id="lat-total">—</div></div>`;
+    }
+
+    function setStatus(msg) {
+      document.getElementById("status-text").textContent = msg;
+    }
+  </script>
+</body>
+</html>

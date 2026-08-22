@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.py[cod]
+.env
+.vscode/
+.DS_Store
+Thumbs.db
+data/
+.pytest_cache/
+
+voice/*.wav
+scratch/*.wav
+
